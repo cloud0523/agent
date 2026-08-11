@@ -26,7 +26,7 @@ def _sample_doc(**overrides) -> Document:
 
 
 # ============================================================================
-# Fixture: mock DocStore per test via monkeypatch
+# Fixtures: mock DocStore and VectorStore per test via monkeypatch
 # ============================================================================
 
 @pytest.fixture
@@ -35,6 +35,15 @@ def mock_store(monkeypatch):
     mock_cls = MagicMock()
     mock_instance = mock_cls.return_value
     monkeypatch.setattr("rag_agent.api.routes.documents.DocStore", mock_cls)
+    return mock_instance
+
+
+@pytest.fixture
+def mock_vs(monkeypatch):
+    """Replace VectorStore in the documents router with a MagicMock."""
+    mock_cls = MagicMock()
+    mock_instance = mock_cls.return_value
+    monkeypatch.setattr("rag_agent.api.routes.documents.VectorStore", mock_cls)
     return mock_instance
 
 
@@ -91,3 +100,47 @@ class TestGetDocument:
         client.get("/api/documents/abc-xyz")
 
         mock_store.get_document.assert_called_once_with("abc-xyz")
+
+
+# ============================================================================
+#  DELETE /api/documents/{document_id}
+# ============================================================================
+
+class TestDeleteDocument:
+    def test_returns_204_when_deleted(self, mock_store, mock_vs):
+        mock_store.get_document.return_value = _sample_doc(id="d99")
+        mock_store.delete_document.return_value = True
+
+        resp = client.delete("/api/documents/d99")
+
+        assert resp.status_code == 204
+
+    def test_returns_404_when_not_found(self, mock_store, mock_vs):
+        mock_store.get_document.return_value = None
+
+        resp = client.delete("/api/documents/nonexistent")
+
+        assert resp.status_code == 404
+        assert "Document not found" in resp.json()["detail"]
+
+    def test_calls_vector_store_delete(self, mock_store, mock_vs):
+        mock_store.get_document.return_value = _sample_doc(id="d1")
+
+        client.delete("/api/documents/d1")
+
+        mock_vs.delete_document.assert_called_once_with("d1")
+
+    def test_calls_doc_store_delete(self, mock_store, mock_vs):
+        mock_store.get_document.return_value = _sample_doc(id="d2")
+
+        client.delete("/api/documents/d2")
+
+        mock_store.delete_document.assert_called_once_with("d2")
+
+    def test_does_not_delete_when_document_missing(self, mock_store, mock_vs):
+        mock_store.get_document.return_value = None
+
+        client.delete("/api/documents/ghost")
+
+        mock_vs.delete_document.assert_not_called()
+        mock_store.delete_document.assert_not_called()

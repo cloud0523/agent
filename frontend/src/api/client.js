@@ -33,6 +33,14 @@ export async function apiGet(path) {
   return res.json();
 }
 
+export async function apiDelete(path) {
+  const res = await fetch(apiUrl(path), { method: 'DELETE' });
+  if (!res.ok) {
+    const err = await res.json();
+    throw new Error(err.detail || `HTTP ${res.status}`);
+  }
+}
+
 export async function apiPost(path, body, isFormData = false) {
   const res = await postResponse(path, body, isFormData);
   if (!res.ok) {

@@ -1,9 +1,10 @@
 import { useState, useEffect } from 'react';
-import { apiGet, apiPost } from '../api/client';
+import { apiGet, apiPost, apiDelete } from '../api/client';
 
 export default function DocumentPanel({ onSelectDoc }) {
   const [documents, setDocuments] = useState([]);
   const [uploading, setUploading] = useState(false);
+  const [deleting, setDeleting] = useState(null);
   const [error, setError] = useState('');
 
   useEffect(() => {
@@ -19,25 +20,24 @@ export default function DocumentPanel({ onSelectDoc }) {
     }
   }
 
-  async function handleUpload(e) {
-    const file = e.target.files?.[0];
-    if (!file) return;
+  async function handleDelete(docId, filename, e) {
+    e.stopPropagation(); // 不触发选中
+    if (!window.confirm(`确认删除 "${filename}"？`)) return;
 
-    setUploading(true);
+    setDeleting(docId);
     setError('');
-    const formData = new FormData();
-    formData.append('file', file);
 
     try {
-      await apiPost('/api/ingest/upload', formData, true);
-      e.target.value = '';
+      await apiDelete(`/api/documents/${docId}`);
       await loadDocuments();
     } catch (err) {
       setError(err.message);
     } finally {
-      setUploading(false);
+      setDeleting(null);
     }
   }
+
+  async function handleUpload(e) {
 
   return (
     <div className="document-panel">
@@ -63,7 +63,7 @@ export default function DocumentPanel({ onSelectDoc }) {
         {documents.map((doc) => (
           <li
             key={doc.id}
-            className="doc-list__item"
+            className={`doc-list__item ${deleting === doc.id ? 'doc-list__item--deleting' : ''}`}
             onClick={() => onSelectDoc?.(doc.id)}
           >
             <div className="doc-list__primary">{doc.filename}</div>
@@ -71,6 +71,14 @@ export default function DocumentPanel({ onSelectDoc }) {
               <span>{doc.chunk_count} chunks</span>
               <span>{doc.file_type || 'unknown'}</span>
             </div>
+            <button
+              className="doc-list__delete-btn"
+              title="删除文档"
+              disabled={deleting === doc.id}
+              onClick={(e) => handleDelete(doc.id, doc.filename, e)}
+            >
+              {deleting === doc.id ? '...' : '×'}
+            </button>
           </li>
         ))}
       </ul>
