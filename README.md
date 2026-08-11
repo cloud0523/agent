@@ -1,4 +1,4 @@
-# RAG Agent
+# DocQuery
 
 A production-quality Retrieval-Augmented Generation (RAG) pipeline for document question-answering. Ingest your PDF, DOCX, TXT, and Markdown files, then ask natural-language questions — answers are grounded in your documents with cited sources. Comes with a **CLI** for power users and a **React web app** with streaming chat.
 

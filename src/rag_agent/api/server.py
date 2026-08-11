@@ -7,7 +7,7 @@ from rag_agent.api.routes.query import router as query_router
 
 
 def create_app() -> FastAPI:
-    app = FastAPI(title="RAG Agent API", version="0.1.0")
+    app = FastAPI(title="DocQuery API", version="0.1.0")
 
     app.add_middleware(
         CORSMiddleware,

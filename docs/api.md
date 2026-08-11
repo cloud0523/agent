@@ -1,4 +1,4 @@
-# RAG Agent API
+# DocQuery API
 
 Base URL: `http://localhost:8000`
 

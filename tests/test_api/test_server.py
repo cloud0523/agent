@@ -43,7 +43,7 @@ def test_all_routes_are_registered():
 class TestCreateApp:
     def test_sets_title_and_version(self):
         app_instance = create_app()
-        assert app_instance.title == "RAG Agent API"
+        assert app_instance.title == "DocQuery API"
         assert app_instance.version == "0.1.0"
 
     def test_creates_unique_instances(self):
@@ -83,6 +83,6 @@ def test_openapi_schema_accessible():
     resp = client.get("/openapi.json")
     assert resp.status_code == 200
     schema = resp.json()
-    assert schema["info"]["title"] == "RAG Agent API"
+    assert schema["info"]["title"] == "DocQuery API"
     assert "/api/query" in schema["paths"]
     assert "/api/documents" in schema["paths"]
