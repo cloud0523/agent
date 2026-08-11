@@ -38,6 +38,24 @@ export default function DocumentPanel({ onSelectDoc }) {
   }
 
   async function handleUpload(e) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setUploading(true);
+    setError('');
+    const formData = new FormData();
+    formData.append('file', file);
+
+    try {
+      await apiPost('/api/ingest/upload', formData, true);
+      e.target.value = '';
+      await loadDocuments();
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setUploading(false);
+    }
+  }
 
   return (
     <div className="document-panel">
