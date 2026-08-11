@@ -1,0 +1,105 @@
+[build-system]
+requires = ["setuptools>=75", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "rag-agent"
+version = "0.1.0"
+description = "A RAG-powered document question-answering agent with CLI and Web interfaces"
+readme = "README.md"
+license = {text = "MIT"}
+requires-python = ">=3.11"
+authors = [
+    {name = "Your Name", email = "your-email@example.com"},
+]
+keywords = ["rag", "llm", "document-qa", "retrieval-augmented-generation"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.14",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+]
+
+dependencies = [
+    # RAG Framework
+    "llama-index-core>=0.12.0",
+    "llama-index-vector-stores-chroma>=0.4.0",
+    "llama-index-embeddings-huggingface>=0.5.0",
+    "llama-index-readers-file>=0.4.0",
+
+    # Vector Store
+    "chromadb>=0.5.0",
+
+    # Local Embeddings
+    "sentence-transformers>=3.0.0",
+
+    # LLM Clients
+    "anthropic>=0.40.0",
+    "openai>=1.50.0",
+
+    # Web Framework
+    "fastapi>=0.115.0",
+    "uvicorn[standard]>=0.30.0",
+    "python-multipart>=0.0.12",
+    "websockets>=14.0",
+
+    # CLI
+    "typer[all]>=0.15.0",
+    "rich>=13.0.0",
+
+    # Document Parsing
+    "pdfplumber>=0.11.0",
+    "python-docx>=1.1.0",
+
+    # Configuration
+    "pydantic-settings>=2.5.0",
+
+    # Logging
+    "loguru>=0.7.0",
+
+    # Hybrid Search
+    "rank-bm25>=0.2.0",
+
+    # Token counting for context management
+    "tiktoken>=0.8.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0",
+    "pytest-asyncio>=0.24.0",
+    "httpx>=0.28.0",
+    "pytest-cov>=6.0",
+]
+ollama = ["ollama>=0.4.0"]
+reranker = ["sentence-transformers[cross-encoder]>=3.0.0"]
+
+[project.scripts]
+rag-cli = "rag_agent.main:app"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+markers = [
+    "integration: marks tests as integration tests (deselect with '-m \"not integration\"')",
+    "slow: marks tests as slow (deselect with '-m \"not slow\"')",
+]
+addopts = ["-v", "--strict-markers", "--tb=short"]
+
+[tool.coverage.run]
+source = ["src/rag_agent"]
+omit = ["tests/*", "*/__init__.py"]
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "if __name__ == .__main__.:",
+    "raise NotImplementedError",
+]
