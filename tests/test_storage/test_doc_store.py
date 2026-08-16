@@ -6,6 +6,7 @@ import pytest
 import sqlite3
 
 from rag_agent.document.schemas import Document
+from rag_agent.storage.doc_store import DocStore
 
 
 class TestDocStoreRegistration:
@@ -187,4 +188,34 @@ class TestDocStoreUpdateDocument:
 
     def test_nonexistent_returns_false(self, temp_db):
         assert temp_db.update_document(str(uuid.uuid4()), status="indexed") is False
+
+
+class TestDocStoreInit:
+    """DocStore must create its parent directory (fixes fresh-install 500s)."""
+
+    def test_creates_parent_directory(self, temp_dir):
+        db_path = temp_dir / "nested" / "subdir" / "metadata.db"
+        assert not db_path.parent.exists()  # pre-condition: dir is missing
+
+        store = DocStore(str(db_path))
+        try:
+            assert db_path.parent.exists()  # mkdir happened
+            assert db_path.exists()  # sqlite file actually created
+        finally:
+            store.close()
+
+    def test_usable_after_parent_created(self, temp_dir):
+        db_path = temp_dir / "data" / "metadata.db"
+        store = DocStore(str(db_path))
+        try:
+            doc = Document(
+                id="fresh-1",
+                filename="a.txt",
+                file_type="txt",
+                file_path="/tmp/a.txt",
+            )
+            store.register_document(doc)
+            assert [d.id for d in store.list_documents()] == ["fresh-1"]
+        finally:
+            store.close()
 

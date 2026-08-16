@@ -5,6 +5,7 @@ Uses Python's built-in sqlite3 — no extra dependencies needed.
 """
 
 import sqlite3
+from pathlib import Path
 import uuid
 from datetime import datetime
 from typing import Optional
@@ -33,6 +34,7 @@ class DocStore:
                      Created automatically if it doesn't exist.
         """
         self._db_path = db_path
+        Path(db_path).parent.mkdir(parents=True, exist_ok=True)
         self._conn = sqlite3.connect(db_path)
         self._conn.row_factory = sqlite3.Row  # Access columns by name
         self._create_table()
