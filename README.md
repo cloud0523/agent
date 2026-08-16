@@ -1,7 +1,6 @@
 # DocQuery
 
-[![CI](https://github.com/cloud0523/agent/actions/workflows/ci.yml/badge.svg)](https://github.com/cloud0523/agent/acti
-  ons/workflows/ci.yml)
+[![CI](https://github.com/cloud0523/agent/actions/workflows/ci.yml/badge.svg)](https://github.com/cloud0523/agent/actions/workflows/ci.yml)
 
 A production-quality Retrieval-Augmented Generation (RAG) pipeline for document question-answering. Ingest your PDF, DOCX, TXT, and Markdown files, then ask natural-language questions — answers are grounded in your documents with cited sources. Comes with a **CLI** for power users and a **React web app** with streaming chat.
 
