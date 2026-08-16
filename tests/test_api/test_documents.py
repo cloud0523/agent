@@ -1,5 +1,6 @@
 """Tests for GET /api/documents endpoints."""
 
+from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -7,6 +8,7 @@ from fastapi.testclient import TestClient
 
 from rag_agent.api.server import app
 from rag_agent.document.schemas import Document
+from rag_agent.utils.errors import DocumentNotFoundError
 
 
 client = TestClient(app)
@@ -144,3 +146,121 @@ class TestDeleteDocument:
 
         mock_vs.delete_document.assert_not_called()
         mock_store.delete_document.assert_not_called()
+
+
+# ============================================================================
+#  POST /api/documents/{document_id}/reingest
+# ============================================================================
+
+class TestReingestDocument:
+    def test_reingest_returns_updated_document(self, monkeypatch):
+        updated = _sample_doc(id="d99", filename="new.pdf")
+        monkeypatch.setattr(
+            "rag_agent.api.routes.documents.reingest_document",
+            lambda doc_id, file_path, chunk_size=None, chunk_overlap=None: updated,
+        )
+
+        resp = client.post("/api/documents/d99/reingest", json={"file_path": "/tmp/new.pdf"})
+
+        assert resp.status_code == 200
+        assert resp.json()["id"] == "d99"
+        assert resp.json()["filename"] == "new.pdf"
+
+    def test_reingest_passes_doc_id_and_chunk_params(self, monkeypatch):
+        captured = {}
+
+        def fake(doc_id, file_path, chunk_size=None, chunk_overlap=None):
+            captured.update(
+                doc_id=doc_id, file_path=file_path,
+                chunk_size=chunk_size, chunk_overlap=chunk_overlap,
+            )
+            return _sample_doc(id=doc_id)
+
+        monkeypatch.setattr("rag_agent.api.routes.documents.reingest_document", fake)
+
+        client.post(
+            "/api/documents/abc/reingest",
+            json={"file_path": "/tmp/x.pdf", "chunk_size": 256, "chunk_overlap": 10},
+        )
+
+        assert captured["doc_id"] == "abc"
+        assert captured["file_path"] == "/tmp/x.pdf"
+        assert captured["chunk_size"] == 256
+        assert captured["chunk_overlap"] == 10
+
+    def test_reingest_document_not_found_returns_404(self, monkeypatch):
+        def fake(*a, **kw):
+            raise DocumentNotFoundError("d99")
+
+        monkeypatch.setattr("rag_agent.api.routes.documents.reingest_document", fake)
+
+        resp = client.post("/api/documents/d99/reingest", json={"file_path": "/tmp/x.pdf"})
+        assert resp.status_code == 404
+
+    def test_reingest_source_missing_returns_404(self, monkeypatch):
+        def fake(*a, **kw):
+            raise FileNotFoundError("no file")
+
+        monkeypatch.setattr("rag_agent.api.routes.documents.reingest_document", fake)
+
+        resp = client.post("/api/documents/d99/reingest", json={"file_path": "/tmp/missing.pdf"})
+        assert resp.status_code == 404
+
+    def test_reingest_generic_error_returns_500(self, monkeypatch):
+        def fake(*a, **kw):
+            raise RuntimeError("boom")
+
+        monkeypatch.setattr("rag_agent.api.routes.documents.reingest_document", fake)
+
+        resp = client.post("/api/documents/d99/reingest", json={"file_path": "/tmp/x.pdf"})
+        assert resp.status_code == 500
+
+
+# ============================================================================
+#  POST /api/documents/{document_id}/reingest/upload
+# ============================================================================
+
+class TestReingestUpload:
+    def test_upload_preserves_extension(self, monkeypatch):
+        captured = {}
+
+        def fake(doc_id, file_path, chunk_size=None, chunk_overlap=None):
+            captured["file_path"] = file_path
+            return _sample_doc(id=doc_id, filename="notes.txt", file_type="txt")
+
+        monkeypatch.setattr("rag_agent.api.routes.documents.reingest_document", fake)
+
+        resp = client.post(
+            "/api/documents/d99/reingest/upload",
+            files={"file": ("notes.txt", b"hello", "text/plain")},
+        )
+
+        assert resp.status_code == 200
+        # 临时文件必须保留原始文件名（含后缀），否则 load_document 判 unsupported / 文件名变 tmpXXXX
+        assert Path(captured["file_path"]).name == "notes.txt"
+
+    def test_upload_temp_file_is_cleaned_up(self, monkeypatch):
+        def fake(doc_id, file_path, chunk_size=None, chunk_overlap=None):
+            return _sample_doc(id=doc_id, file_path=file_path)
+
+        monkeypatch.setattr("rag_agent.api.routes.documents.reingest_document", fake)
+
+        resp = client.post(
+            "/api/documents/d99/reingest/upload",
+            files={"file": ("data.md", b"# hi", "text/markdown")},
+        )
+
+        assert resp.status_code == 200
+        assert not Path(resp.json()["file_path"]).exists()
+
+    def test_upload_document_not_found_returns_404(self, monkeypatch):
+        def fake(*a, **kw):
+            raise DocumentNotFoundError("d99")
+
+        monkeypatch.setattr("rag_agent.api.routes.documents.reingest_document", fake)
+
+        resp = client.post(
+            "/api/documents/d99/reingest/upload",
+            files={"file": ("x.txt", b"hi", "text/plain")},
+        )
+        assert resp.status_code == 404

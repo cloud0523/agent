@@ -126,6 +126,25 @@ class TestIngestUpload:
         # Temp file must be gone after the request
         assert not temp_path.exists()
 
+    def test_upload_preserves_original_filename(self, monkeypatch):
+        from pathlib import Path
+
+        captured = {}
+
+        def fake(file_path, chunk_size=None, chunk_overlap=None):
+            captured["file_path"] = file_path
+            return _sample_document(filename="my-report.pdf", file_type="pdf")
+
+        monkeypatch.setattr("rag_agent.api.routes.ingest.ingest_document", fake)
+
+        resp = client.post(
+            "/api/ingest/upload",
+            files={"file": ("my-report.pdf", b"hello", "application/pdf")},
+        )
+
+        assert resp.status_code == 200
+        assert Path(captured["file_path"]).name == "my-report.pdf"
+
     def test_upload_without_file_returns_422(self):
         resp = client.post("/api/ingest/upload")
         assert resp.status_code == 422

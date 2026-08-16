@@ -40,15 +40,12 @@ def ingest_document_endpoint(request: IngestDocumentRequest):
 
 @router.post("/ingest/upload", response_model=Document)
 async def ingest_upload_endpoint(file: UploadFile = File(...)):
-    suffix = Path(file.filename).suffix
-    with tempfile.NamedTemporaryFile(suffix=suffix, delete=False) as tmp:
-        tmp.write(await file.read())
-        tmp_path = tmp.name
-
-    try:
-        return ingest_document(tmp_path)
-    finally:
-        Path(tmp_path).unlink(missing_ok=True)
+    content = await file.read()
+    safe_name = Path(file.filename).name
+    with tempfile.TemporaryDirectory() as tmpdir:
+        tmp_path = Path(tmpdir) / safe_name
+        tmp_path.write_bytes(content)
+        return ingest_document(str(tmp_path))
 
 
 @router.post("/ingest/directory", response_model=List[Document])

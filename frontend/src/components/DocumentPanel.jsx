@@ -5,6 +5,7 @@ export default function DocumentPanel({ onSelectDoc }) {
   const [documents, setDocuments] = useState([]);
   const [uploading, setUploading] = useState(false);
   const [deleting, setDeleting] = useState(null);
+  const [replacing, setReplacing] = useState(null);
   const [error, setError] = useState('');
 
   useEffect(() => {
@@ -57,6 +58,31 @@ export default function DocumentPanel({ onSelectDoc }) {
     }
   }
 
+  async function handleReplace(docId, filename, e) {
+    e.stopPropagation(); // 不触发选中
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (!window.confirm(`确认用 "${file.name}" 替换 "${filename}"？`)) {
+      e.target.value = '';
+      return;
+    }
+
+    setReplacing(docId);
+    setError('');
+    const formData = new FormData();
+    formData.append('file', file);
+
+    try {
+      await apiPost(`/api/documents/${docId}/reingest/upload`, formData, true);
+      e.target.value = '';
+      await loadDocuments();
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setReplacing(null);
+    }
+  }
+
   return (
     <div className="document-panel">
       <div className="document-panel__header">
@@ -86,9 +112,23 @@ export default function DocumentPanel({ onSelectDoc }) {
           >
             <div className="doc-list__primary">{doc.filename}</div>
             <div className="doc-list__secondary">
-              <span>{doc.chunk_count} chunks</span>
+              <span>{doc.num_chunks} chunks</span>
               <span>{doc.file_type || 'unknown'}</span>
             </div>
+            <label
+              className="doc-list__replace-btn"
+              title="替换文档"
+              onClick={(e) => e.stopPropagation()}
+            >
+              {replacing === doc.id ? '...' : '⇄'}
+              <input
+                type="file"
+                accept=".pdf,.docx,.txt,.md"
+                style={{ display: 'none' }}
+                disabled={replacing === doc.id}
+                onChange={(e) => handleReplace(doc.id, doc.filename, e)}
+              />
+            </label>
             <button
               className="doc-list__delete-btn"
               title="删除文档"

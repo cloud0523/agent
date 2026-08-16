@@ -1,12 +1,18 @@
-from typing import List
+from typing import List, Optional
 
-from fastapi import APIRouter, HTTPException
+import tempfile
+from pathlib import Path
+
+from fastapi import APIRouter, HTTPException, UploadFile, File
 from fastapi.responses import JSONResponse
+from pydantic import BaseModel
 
 from rag_agent.config import settings
 from rag_agent.document.schemas import Document
 from rag_agent.storage.doc_store import DocStore
 from rag_agent.storage.vector_store import VectorStore
+from rag_agent.pipeline.ingestion import reingest_document
+from rag_agent.utils.errors import DocumentNotFoundError
 
 
 router = APIRouter()
@@ -40,3 +46,45 @@ def delete_document(document_id: str):
     store.delete_document(document_id)
 
     return JSONResponse(status_code=204, content=None)
+
+
+class ReingestDocumentRequest(BaseModel):
+    file_path: str
+    chunk_size: Optional[int] = None
+    chunk_overlap: Optional[int] = None
+
+
+@router.post("/documents/{document_id}/reingest", response_model=Document)
+def reingest_document_endpoint(document_id: str, req: ReingestDocumentRequest):
+    try:
+        doc = reingest_document(
+            document_id,
+            req.file_path,
+            chunk_size=req.chunk_size,
+            chunk_overlap=req.chunk_overlap,
+        )
+        return doc
+    except DocumentNotFoundError:
+        raise HTTPException(status_code=404, detail="Document not found")
+    except FileNotFoundError:
+        raise HTTPException(status_code=404, detail="Source file not found")
+    except Exception as exc:  # pragma: no cover - generic mapping
+        raise HTTPException(status_code=500, detail=str(exc))
+
+
+@router.post("/documents/{document_id}/reingest/upload", response_model=Document)
+def reingest_document_upload(document_id: str, file: UploadFile = File(...)):
+    # write upload into a temporary directory and call pipeline synchronously
+    content = file.file.read()
+    safe_name = Path(file.filename).name
+    with tempfile.TemporaryDirectory() as tmpdir:
+        tmp_path = Path(tmpdir) / safe_name
+        tmp_path.write_bytes(content)
+        try:
+            return reingest_document(document_id, str(tmp_path))
+        except DocumentNotFoundError:
+            raise HTTPException(status_code=404, detail="Document not found")
+        except FileNotFoundError:
+            raise HTTPException(status_code=404, detail="Source file not found")
+        except Exception as exc:  # pragma: no cover - generic mapping
+            raise HTTPException(status_code=500, detail=str(exc))

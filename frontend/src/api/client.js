@@ -96,7 +96,7 @@ export async function apiQueryStream({ question, top_k = 5, stream = true, conve
         try {
           const data = JSON.parse(dataStr);
           onDelta(data);
-        } catch (err) {
+        } catch {
           // 忽略无法解析的非 JSON 数据
         }
       }
